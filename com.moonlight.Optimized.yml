@@ -1,0 +1,97 @@
+# Flatpak manifest for Moonlight-Qt Optimized
+app-id: com.moonlight.Optimized
+runtime: org.kde.Platform
+runtime-version: '6.6'
+sdk: org.kde.Sdk
+command: moonlight-launcher.sh
+finish-args:
+  # Network access for streaming
+  - --share=network
+  # Graphics acceleration
+  - --device=all
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  # Audio
+  - --socket=pulseaudio
+  # Controller support
+  - --device=input
+  # Filesystem access for settings
+  - --filesystem=home
+  # GPU acceleration
+  - --device=dri
+  # System tray
+  - --talk-name=org.kde.StatusNotifierWatcher
+  # Environment
+  - --env=QT_QPA_PLATFORM=wayland
+  - --env=SDL_VIDEODRIVER=wayland
+  - --env=__GL_THREADED_OPTIMIZATIONS=1
+  - --env=AMD_VULKAN_ICD=RADV
+  - --env=RADV_PERFTEST=gpl,nggc,rtwave64
+
+modules:
+  - name: ffmpeg
+    buildsystem: autotools
+    config-opts:
+      - --enable-shared
+      - --disable-static
+      - --enable-gpl
+      - --enable-version3
+      - --enable-optimizations
+      - --enable-vaapi
+      - --enable-vdpau
+      - --enable-libopus
+      - --enable-libvpx
+    sources:
+      - type: archive
+        url: https://ffmpeg.org/releases/ffmpeg-6.1.tar.xz
+        sha256: 488c76e57dd9b3bee901f71d5c95eaf1db4a5a31fe46a28654e837144207c270
+
+  - name: SDL2
+    buildsystem: autotools
+    config-opts:
+      - --enable-video-wayland
+      - --enable-wayland-shared
+      - --enable-video-x11
+      - --enable-x11-shared
+    sources:
+      - type: archive
+        url: https://github.com/libsdl-org/SDL/releases/download/release-2.28.5/SDL2-2.28.5.tar.gz
+        sha256: 332cb37d0be20cb9541739c61f79bae5a477427d79ae85e352089afdaf6666e4
+
+  - name: SDL2_ttf
+    buildsystem: autotools
+    sources:
+      - type: archive
+        url: https://github.com/libsdl-org/SDL_ttf/releases/download/release-2.20.2/SDL2_ttf-2.20.2.tar.gz
+        sha256: 9dc71ed93487521b107a2c4a9ca6bf43fb62f6bddd5c26b055e6b91418a22053
+
+  - name: opus
+    buildsystem: autotools
+    sources:
+      - type: archive
+        url: https://archive.mozilla.org/pub/opus/opus-1.4.tar.gz
+        sha256: c9b32b4253be5ae63d1ff16eea06b94b5f0f2951b7a02aceef58e3a3ce49c51f
+
+  - name: moonlight-optimized
+    buildsystem: qmake
+    build-options:
+      cflags: -march=znver3 -mtune=znver3 -O3 -flto
+      cxxflags: -march=znver3 -mtune=znver3 -O3 -flto
+      ldflags: -flto
+    config-opts:
+      - CONFIG+=release
+      - CONFIG+=optimize_size
+    sources:
+      - type: git
+        url: https://github.com/moonlight-stream/moonlight-qt.git
+        tag: v5.0.1
+      - type: patch
+        path: patches/ryzen-optimizations.patch
+      - type: file
+        path: moonlight-launcher.sh
+        dest-filename: moonlight-launcher.sh
+    post-install:
+      - install -Dm755 moonlight-launcher.sh /app/bin/moonlight-launcher.sh
+      - install -Dm644 moonlight.desktop /app/share/applications/com.moonlight.Optimized.desktop
+      - install -Dm644 moonlight.png /app/share/icons/hicolor/256x256/apps/com.moonlight.Optimized.png

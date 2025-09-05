@@ -145,6 +145,8 @@ public:
     Q_PROPERTY(bool keepAwake MEMBER keepAwake NOTIFY keepAwakeChanged)
     Q_PROPERTY(CaptureSysKeysMode captureSysKeysMode MEMBER captureSysKeysMode NOTIFY captureSysKeysModeChanged)
     Q_PROPERTY(Language language MEMBER language NOTIFY languageChanged);
+    Q_PROPERTY(bool lowLatencyMode MEMBER lowLatencyMode NOTIFY lowLatencyModeChanged)
+    Q_PROPERTY(bool steamOSOptimizations MEMBER steamOSOptimizations NOTIFY steamOSOptimizationsChanged)
 
     Q_INVOKABLE bool retranslate();
 
@@ -187,6 +189,8 @@ public:
     UIDisplayMode uiDisplayMode;
     Language language;
     CaptureSysKeysMode captureSysKeysMode;
+    bool lowLatencyMode;
+    bool steamOSOptimizations;
 
 signals:
     void displayModeChanged();
@@ -224,6 +228,8 @@ signals:
     void captureSysKeysModeChanged();
     void keepAwakeChanged();
     void languageChanged();
+    void lowLatencyModeChanged();
+    void steamOSOptimizationsChanged();
 
 private:
     explicit StreamingPreferences(QQmlEngine *qmlEngine);

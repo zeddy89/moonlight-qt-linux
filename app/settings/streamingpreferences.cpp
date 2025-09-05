@@ -51,6 +51,8 @@
 #define SER_CAPTURESYSKEYS "capturesyskeys"
 #define SER_KEEPAWAKE "keepawake"
 #define SER_LANGUAGE "language"
+#define SER_LOWLATENCYMODE "lowlatencymode"
+#define SER_STEAMOSOPT "steamosopt"
 
 #define CURRENT_DEFAULT_VER 2
 
@@ -148,6 +150,8 @@ void StreamingPreferences::reload()
     swapFaceButtons = settings.value(SER_SWAPFACEBUTTONS, false).toBool();
     keepAwake = settings.value(SER_KEEPAWAKE, true).toBool();
     enableHdr = settings.value(SER_HDR, false).toBool();
+    lowLatencyMode = settings.value(SER_LOWLATENCYMODE, false).toBool();
+    steamOSOptimizations = settings.value(SER_STEAMOSOPT, false).toBool();
     captureSysKeysMode = static_cast<CaptureSysKeysMode>(settings.value(SER_CAPTURESYSKEYS,
                                                          static_cast<int>(CaptureSysKeysMode::CSK_OFF)).toInt());
     audioConfig = static_cast<AudioConfig>(settings.value(SER_AUDIOCFG,
@@ -355,6 +359,8 @@ void StreamingPreferences::save()
     settings.setValue(SER_SWAPFACEBUTTONS, swapFaceButtons);
     settings.setValue(SER_CAPTURESYSKEYS, captureSysKeysMode);
     settings.setValue(SER_KEEPAWAKE, keepAwake);
+    settings.setValue(SER_LOWLATENCYMODE, lowLatencyMode);
+    settings.setValue(SER_STEAMOSOPT, steamOSOptimizations);
 }
 
 int StreamingPreferences::getDefaultBitrate(int width, int height, int fps, bool yuv444)

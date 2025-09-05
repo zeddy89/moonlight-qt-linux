@@ -16,7 +16,7 @@ contains(QT_ARCH, arm64) {
     LIBS += -L$$PWD/../libs/windows/lib/arm64
 }
 
-LIBS += -ldetours
+LIBS += -ldetours -lstrsafe -lshlwapi
 DEFINES += ANTIHOOKING_LIBRARY
 SOURCES += antihookingprotection.cpp
 HEADERS += antihookingprotection.h

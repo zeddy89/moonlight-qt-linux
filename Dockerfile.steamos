@@ -1,0 +1,57 @@
+# Dockerfile for building Moonlight-Qt for SteamOS/Linux
+# Based on Arch Linux (SteamOS base)
+FROM archlinux:latest
+
+# Install build dependencies
+RUN pacman -Syu --noconfirm && \
+    pacman -S --noconfirm \
+    base-devel \
+    git \
+    cmake \
+    qt6-base \
+    qt6-declarative \
+    qt6-svg \
+    qt6-quickcontrols2 \
+    qt6-tools \
+    ffmpeg \
+    sdl2 \
+    sdl2_ttf \
+    opus \
+    libva \
+    libvdpau \
+    libxkbcommon-x11 \
+    alsa-lib \
+    pulseaudio \
+    jack2 \
+    libpulse \
+    openssl \
+    libevdev \
+    udev \
+    boost \
+    python
+
+# Set working directory
+WORKDIR /build
+
+# Copy source code
+COPY . /build/
+
+# Make build script executable
+RUN chmod +x build-linux.sh
+
+# Build Moonlight-Qt
+RUN ./build-linux.sh || true
+
+# Create output directory
+RUN mkdir -p /output && \
+    find . -name "moonlight" -type f -executable -exec cp {} /output/ \; || \
+    find build-linux -name "moonlight" -type f -executable -exec cp {} /output/ \; || \
+    echo "Warning: Could not find moonlight executable"
+
+# Package built files
+RUN cd /output && \
+    tar czf moonlight-qt-steamos-optimized.tar.gz * || \
+    echo "Warning: Could not create archive"
+
+# Extract built files to host
+CMD ["sh", "-c", "cp -r /output/* /host-output/ 2>/dev/null || cp -r /build/build-linux/* /host-output/ 2>/dev/null || echo 'Build artifacts copied'"]

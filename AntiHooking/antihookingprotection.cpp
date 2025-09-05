@@ -19,16 +19,16 @@ public:
         DetourUpdateThread(GetCurrentThread());
 
         s_RealLoadLibraryA = LoadLibraryA;
-        DetourAttach(&(PVOID&)s_RealLoadLibraryA, LoadLibraryAHook);
+        DetourAttach(&(PVOID&)s_RealLoadLibraryA, (PVOID)LoadLibraryAHook);
 
         s_RealLoadLibraryW = LoadLibraryW;
-        DetourAttach(&(PVOID&)s_RealLoadLibraryW, LoadLibraryWHook);
+        DetourAttach(&(PVOID&)s_RealLoadLibraryW, (PVOID)LoadLibraryWHook);
 
         s_RealLoadLibraryExA = LoadLibraryExA;
-        DetourAttach(&(PVOID&)s_RealLoadLibraryExA, LoadLibraryExAHook);
+        DetourAttach(&(PVOID&)s_RealLoadLibraryExA, (PVOID)LoadLibraryExAHook);
 
         s_RealLoadLibraryExW = LoadLibraryExW;
-        DetourAttach(&(PVOID&)s_RealLoadLibraryExW, LoadLibraryExWHook);
+        DetourAttach(&(PVOID&)s_RealLoadLibraryExW, (PVOID)LoadLibraryExWHook);
 
         DetourTransactionCommit();
     }
@@ -38,10 +38,10 @@ public:
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
 
-        DetourDetach(&(PVOID&)s_RealLoadLibraryA, LoadLibraryAHook);
-        DetourDetach(&(PVOID&)s_RealLoadLibraryW, LoadLibraryWHook);
-        DetourDetach(&(PVOID&)s_RealLoadLibraryExA, LoadLibraryExAHook);
-        DetourDetach(&(PVOID&)s_RealLoadLibraryExW, LoadLibraryExWHook);
+        DetourDetach(&(PVOID&)s_RealLoadLibraryA, (PVOID)LoadLibraryAHook);
+        DetourDetach(&(PVOID&)s_RealLoadLibraryW, (PVOID)LoadLibraryWHook);
+        DetourDetach(&(PVOID&)s_RealLoadLibraryExA, (PVOID)LoadLibraryExAHook);
+        DetourDetach(&(PVOID&)s_RealLoadLibraryExW, (PVOID)LoadLibraryExWHook);
 
         DetourTransactionCommit();
     }
@@ -66,7 +66,7 @@ private:
         // library name does not include a file extension and the loader
         // automatically assumes .dll.
 
-        for (int i = 0; i < ARRAYSIZE(k_BlacklistedDlls); i++) {
+        for (size_t i = 0; i < ARRAYSIZE(k_BlacklistedDlls); i++) {
             if (_wcsicmp(dllName, k_BlacklistedDlls[i]) == 0) {
                 return true;
             }

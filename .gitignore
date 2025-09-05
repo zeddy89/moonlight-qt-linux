@@ -5,3 +5,24 @@
 build/
 config.tests/*/.qmake.stash
 config.tests/*/Makefile
+
+# Claude-related files
+.claude/
+
+# Qt/QMake build artifacts
+Makefile*
+.qmake.cache
+.qmake.stash
+**/Makefile
+**/Makefile.Debug
+**/Makefile.Release
+debug/
+release/
+**/debug/
+**/release/
+config.log
+*_resource.rc
+qml_qmlcache.qrc
+
+# Temporary files
+nul

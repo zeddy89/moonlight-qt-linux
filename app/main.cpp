@@ -731,6 +731,17 @@ int main(int argc, char *argv[])
     // Create the identity manager on the main thread
     IdentityManager::get();
 
+    // Apply SteamOS/Gamescope optimizations if enabled
+    if (StreamingPreferences::get()->steamOSOptimizations) {
+        // Optimize for Gamescope compositor on SteamOS
+        SDL_SetHint(SDL_HINT_LINUX_JOYSTICK_DEADZONES, "0"); // Let Steam Input handle deadzones
+        SDL_SetHint(SDL_HINT_VIDEO_WAYLAND_PREFER_LIBDECOR, "0"); // Better Gamescope integration  
+        SDL_SetHint(SDL_HINT_VIDEO_WAYLAND_ALLOW_LIBDECOR, "0"); // Prevent decorator conflicts
+        SDL_SetHint(SDL_HINT_FRAMEBUFFER_ACCELERATION, "1"); // Force GPU acceleration
+        SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1"); // Ensure VSync with Gamescope
+        SDL_SetHint(SDL_HINT_VIDEO_DOUBLE_BUFFER, "1"); // Enable double buffering
+    }
+
     // We require the Material theme
     QQuickStyle::setStyle("Material");
 

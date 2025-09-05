@@ -1751,6 +1751,38 @@ Flickable {
                                   qsTr("You can toggle it at any time while streaming using Ctrl+Alt+Shift+S or Select+L1+R1+X.") + "\n\n" +
                                   qsTr("The performance overlay is not supported on Steam Link or Raspberry Pi.")
                 }
+
+                CheckBox {
+                    id: lowLatencyMode
+                    width: parent.width
+                    text: qsTr("Low-latency optimization mode (Experimental)")
+                    font.pointSize: 12
+                    checked: StreamingPreferences.lowLatencyMode
+                    onCheckedChanged: {
+                        StreamingPreferences.lowLatencyMode = checked
+                    }
+
+                    ToolTip.delay: 1000
+                    ToolTip.timeout: 5000
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("Reduces decoding latency for handheld devices. May increase CPU/GPU usage. Optimized for AMD Ryzen Z1/Z1 Extreme processors.")
+                }
+
+                CheckBox {
+                    id: steamOSOptimizations
+                    width: parent.width
+                    text: qsTr("Enable SteamOS/Gamescope optimizations")
+                    font.pointSize: 12
+                    checked: StreamingPreferences.steamOSOptimizations
+                    onCheckedChanged: {
+                        StreamingPreferences.steamOSOptimizations = checked
+                    }
+
+                    ToolTip.delay: 1000
+                    ToolTip.timeout: 5000
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("Enables optimizations for SteamOS and Gamescope compositor. Recommended for Steam Deck, Legion Go, ROG Ally, and other gaming handhelds running SteamOS.")
+                }
             }
         }
     }

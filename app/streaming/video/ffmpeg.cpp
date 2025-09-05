@@ -492,6 +492,17 @@ bool FFmpegVideoDecoder::completeInitialization(const AVCodec* decoder, enum AVP
 
     // Always request low delay decoding
     m_VideoDecoderCtx->flags |= AV_CODEC_FLAG_LOW_DELAY;
+    
+    // Enable additional low-latency optimizations if requested
+    if (Session::get()->getPreferences()->lowLatencyMode) {
+        // Fast decoding mode - trade quality for speed
+        m_VideoDecoderCtx->flags2 |= AV_CODEC_FLAG2_FAST;
+        
+        // Reduce buffer sizes for lower latency
+        if (m_VideoDecoderCtx->codec->capabilities & AV_CODEC_CAP_DELAY) {
+            m_VideoDecoderCtx->delay = 0;
+        }
+    }
 
     // Allow display of corrupt frames and frames missing references
     m_VideoDecoderCtx->flags |= AV_CODEC_FLAG_OUTPUT_CORRUPT;
@@ -509,7 +520,14 @@ bool FFmpegVideoDecoder::completeInitialization(const AVCodec* decoder, enum AVP
     // Enable slice multi-threading for software decoding
     if (!isHardwareAccelerated()) {
         m_VideoDecoderCtx->thread_type = FF_THREAD_SLICE;
-        m_VideoDecoderCtx->thread_count = qMin(MAX_SLICES, SDL_GetCPUCount());
+        
+        // Optimize thread count for low-latency mode
+        if (Session::get()->getPreferences()->lowLatencyMode) {
+            // Use fewer threads for lower latency (4 threads optimal for Ryzen Z1 Extreme)
+            m_VideoDecoderCtx->thread_count = qMin(4, SDL_GetCPUCount());
+        } else {
+            m_VideoDecoderCtx->thread_count = qMin(MAX_SLICES, SDL_GetCPUCount());
+        }
     }
     else {
         // No threading for HW decode
@@ -1766,7 +1784,13 @@ void FFmpegVideoDecoder::decoderThreadProc()
                     }
                     else {
                         // No output data or input data. Let's wait a little bit.
-                        SDL_Delay(2);
+                        if (Session::get()->getPreferences()->lowLatencyMode) {
+                            // Use busy-wait for sub-millisecond precision in low-latency mode
+                            // This trades CPU usage for lower latency
+                            SDL_Delay(0); // Yield to OS but return immediately
+                        } else {
+                            SDL_Delay(2);
+                        }
                     }
                 }
                 else {

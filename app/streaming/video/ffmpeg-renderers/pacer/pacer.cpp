@@ -1,5 +1,6 @@
 #include "pacer.h"
 #include "streaming/streamutils.h"
+#include "streaming/session.h"
 
 #ifdef Q_OS_WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -20,6 +21,7 @@
 // must not exceed the number buffer pool size to avoid running the decoder
 // out of available decoding surfaces.
 #define MAX_QUEUED_FRAMES 4
+#define MAX_QUEUED_FRAMES_LOW_LATENCY 2
 
 // We may be woken up slightly late so don't go all the way
 // up to the next V-sync since we may accidentally step into
@@ -27,6 +29,7 @@
 // to do the render itself, so we can't render right before
 // V-sync happens.
 #define TIMER_SLACK_MS 3
+#define TIMER_SLACK_MS_LOW_LATENCY 1
 
 Pacer::Pacer(IFFmpegRenderer* renderer, PVIDEO_STATS videoStats) :
     m_RenderThread(nullptr),
@@ -240,7 +243,8 @@ void Pacer::handleVsync(int timeUntilNextVsyncMillis)
 
     if (m_PacingQueue.isEmpty()) {
         // Wait for a frame to arrive or our V-sync timeout to expire
-        if (!m_PacingQueueNotEmpty.wait(&m_FrameQueueLock, SDL_max(timeUntilNextVsyncMillis, TIMER_SLACK_MS) - TIMER_SLACK_MS)) {
+        int timerSlack = Session::get()->getPreferences()->lowLatencyMode ? TIMER_SLACK_MS_LOW_LATENCY : TIMER_SLACK_MS;
+        if (!m_PacingQueueNotEmpty.wait(&m_FrameQueueLock, SDL_max(timeUntilNextVsyncMillis, timerSlack) - timerSlack)) {
             // Wait timed out - unlock and bail
             m_FrameQueueLock.unlock();
             return;
@@ -389,8 +393,9 @@ void Pacer::renderFrame(AVFrame* frame)
 
 void Pacer::dropFrameForEnqueue(QQueue<AVFrame*>& queue)
 {
-    SDL_assert(queue.size() <= MAX_QUEUED_FRAMES);
-    if (queue.size() == MAX_QUEUED_FRAMES) {
+    int maxQueuedFrames = Session::get()->getPreferences()->lowLatencyMode ? MAX_QUEUED_FRAMES_LOW_LATENCY : MAX_QUEUED_FRAMES;
+    SDL_assert(queue.size() <= maxQueuedFrames);
+    if (queue.size() == maxQueuedFrames) {
         AVFrame* frame = queue.dequeue();
         av_frame_free(&frame);
     }

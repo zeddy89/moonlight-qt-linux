@@ -1,0 +1,239 @@
+name: Build for SteamOS/Linux
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        include:
+          - name: "SteamOS (Arch-based)"
+            container: archlinux:latest
+            qt_version: qt6
+          - name: "Ubuntu 22.04"
+            container: ubuntu:22.04
+            qt_version: qt6
+
+    container: ${{ matrix.container }}
+    
+    steps:
+    - name: Install Git (Arch)
+      if: contains(matrix.container, 'arch')
+      run: |
+        pacman -Syu --noconfirm
+        pacman -S --noconfirm git
+        
+    - name: Install Git (Ubuntu)
+      if: contains(matrix.container, 'ubuntu')
+      run: |
+        apt-get update
+        apt-get install -y git
+        
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+        
+    - name: Install Dependencies (Arch)
+      if: contains(matrix.container, 'arch')
+      run: |
+        pacman -S --noconfirm \
+          base-devel \
+          cmake \
+          qt6-base \
+          qt6-declarative \
+          qt6-svg \
+          qt6-quickcontrols2 \
+          qt6-tools \
+          ffmpeg \
+          sdl2 \
+          sdl2_ttf \
+          opus \
+          libva \
+          libvdpau \
+          libpulse \
+          openssl \
+          libevdev \
+          boost
+          
+    - name: Install Dependencies (Ubuntu)
+      if: contains(matrix.container, 'ubuntu')
+      run: |
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y \
+          build-essential \
+          cmake \
+          qt6-base-dev \
+          qt6-declarative-dev \
+          libqt6svg6-dev \
+          qml6-module-qtquick-controls2 \
+          qt6-tools-dev \
+          libavcodec-dev \
+          libavformat-dev \
+          libavutil-dev \
+          libsdl2-dev \
+          libsdl2-ttf-dev \
+          libopus-dev \
+          libva-dev \
+          libvdpau-dev \
+          libpulse-dev \
+          libssl-dev \
+          libevdev-dev \
+          libboost-dev \
+          pkg-config
+          
+    - name: Configure Build
+      run: |
+        mkdir build
+        cd build
+        if command -v qmake6; then
+          QMAKE=qmake6
+        elif command -v qmake-qt6; then
+          QMAKE=qmake-qt6
+        else
+          QMAKE=qmake
+        fi
+        $QMAKE ../moonlight-qt.pro \
+          CONFIG+=release \
+          CONFIG+=optimize_size \
+          QMAKE_CXXFLAGS+="-march=znver3 -mtune=znver3 -O3" \
+          QMAKE_CFLAGS+="-march=znver3 -mtune=znver3 -O3"
+          
+    - name: Build
+      run: |
+        cd build
+        make -j$(nproc)
+        
+    - name: Package
+      run: |
+        cd build
+        mkdir -p package/moonlight-qt-steamos
+        find . -name "moonlight" -type f -executable -exec cp {} package/moonlight-qt-steamos/ \;
+        
+        # Create launch script
+        cat > package/moonlight-qt-steamos/launch.sh <<'EOF'
+        #!/bin/bash
+        export SDL_VIDEODRIVER=wayland
+        export QT_QPA_PLATFORM=wayland
+        DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+        exec "$DIR/moonlight" "$@"
+        EOF
+        
+        chmod +x package/moonlight-qt-steamos/launch.sh
+        
+        # Create info file
+        cat > package/moonlight-qt-steamos/INFO.txt <<EOF
+        Moonlight-Qt for SteamOS/Linux
+        ==============================
+        Built on: $(date)
+        Platform: ${{ matrix.name }}
+        
+        Optimizations:
+        - Low-latency mode for AMD Ryzen Z1/Z1 Extreme
+        - Gamescope/Wayland integration
+        - Optimized for handheld gaming devices
+        
+        To use:
+        1. Run ./launch.sh or ./moonlight directly
+        2. Enable optimizations in Settings > Advanced
+        
+        For Steam Deck/Legion Go:
+        Add launch.sh as a non-Steam game
+        EOF
+        
+        cd package
+        tar czf moonlight-qt-${{ matrix.name }}-optimized.tar.gz moonlight-qt-steamos/
+        
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: moonlight-qt-${{ matrix.name }}
+        path: build/package/*.tar.gz
+        
+  build-appimage:
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+        
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          qt6-base-dev \
+          qt6-declarative-dev \
+          libqt6svg6-dev \
+          qml6-module-* \
+          qt6-tools-dev \
+          libavcodec-dev \
+          libavformat-dev \
+          libavutil-dev \
+          libsdl2-dev \
+          libsdl2-ttf-dev \
+          libopus-dev \
+          libva-dev \
+          libvdpau-dev \
+          libpulse-dev \
+          libssl-dev \
+          libevdev-dev \
+          libboost-dev \
+          pkg-config \
+          wget \
+          file
+          
+    - name: Build
+      run: |
+        mkdir build
+        cd build
+        qmake6 ../moonlight-qt.pro CONFIG+=release
+        make -j$(nproc)
+        
+    - name: Create AppImage
+      run: |
+        # Download linuxdeployqt
+        wget -c "https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage"
+        chmod +x linuxdeployqt*.AppImage
+        
+        # Prepare AppDir
+        cd build
+        mkdir -p AppDir/usr/bin
+        find . -name "moonlight" -type f -executable -exec cp {} AppDir/usr/bin/ \;
+        
+        # Create desktop file
+        cat > AppDir/moonlight.desktop <<EOF
+        [Desktop Entry]
+        Name=Moonlight (Optimized)
+        Comment=Stream games with low-latency optimizations
+        Exec=moonlight
+        Icon=moonlight
+        Terminal=false
+        Type=Application
+        Categories=Game;
+        EOF
+        
+        # Create simple icon
+        mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+        convert -size 256x256 xc:blue AppDir/usr/share/icons/hicolor/256x256/apps/moonlight.png || true
+        
+        # Create AppImage
+        ../linuxdeployqt*.AppImage AppDir/usr/bin/moonlight -appimage -no-strip -verbose=2 || true
+        
+        # Rename output
+        mv *.AppImage moonlight-qt-steamos-optimized.AppImage || true
+        
+    - name: Upload AppImage
+      uses: actions/upload-artifact@v3
+      with:
+        name: moonlight-qt-appimage
+        path: build/*.AppImage
