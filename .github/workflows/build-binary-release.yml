@@ -33,6 +33,15 @@ jobs:
       with:
         submodules: recursive
     
+    - name: Initialize submodules
+      run: |
+        git submodule update --init --recursive --depth 1
+        cd h264bitstream
+        git submodule update --init --recursive --depth 1
+        cd ../moonlight-common-c  
+        git submodule update --init --recursive --depth 1
+        cd ..
+    
     - name: Build Moonlight
       run: |
         mkdir build
@@ -196,6 +205,15 @@ jobs:
       uses: actions/checkout@v3
       with:
         submodules: recursive
+    
+    - name: Initialize submodules
+      run: |
+        git submodule update --init --recursive --depth 1
+        cd h264bitstream
+        git submodule update --init --recursive --depth 1
+        cd ../moonlight-common-c  
+        git submodule update --init --recursive --depth 1
+        cd ..
     
     - name: Build Moonlight
       run: |

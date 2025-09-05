@@ -1,0 +1,159 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    name: Build Linux Binary
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        submodules: true
+    
+    - name: Setup build environment
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          build-essential cmake git pkg-config \
+          qt6-base-dev qt6-declarative-dev libqt6svg6-dev \
+          qml6-module-qtquick-controls qml6-module-qtquick-templates \
+          qml6-module-qtquick-layouts qml6-module-qtqml-workerscript \
+          qml6-module-qtquick-window qml6-module-qtquick-dialogs \
+          libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
+          libsdl2-dev libsdl2-ttf-dev libopus-dev \
+          libssl-dev libva-dev libvdpau-dev libpulse-dev \
+          libdrm-dev libegl1-mesa-dev libgl1-mesa-dev \
+          libx11-dev libxcb1-dev libxkbcommon-dev
+    
+    - name: Build submodules
+      run: |
+        # Build h264bitstream
+        cd h264bitstream
+        make -j$(nproc)
+        cd ..
+        
+        # Build moonlight-common-c
+        cd moonlight-common-c
+        mkdir -p build
+        cd build
+        cmake ..
+        make -j$(nproc)
+        cd ../..
+    
+    - name: Build Moonlight
+      run: |
+        mkdir build
+        cd build
+        qmake6 ../moonlight-qt.pro \
+          CONFIG+=release \
+          QMAKE_CXXFLAGS+="-march=x86-64-v3 -O3 -flto" \
+          QMAKE_CFLAGS+="-march=x86-64-v3 -O3 -flto" \
+          QMAKE_LFLAGS+="-flto -Wl,-O1"
+        make -j$(nproc)
+    
+    - name: Package binary
+      run: |
+        VERSION="${GITHUB_REF_NAME}"
+        PACKAGE_NAME="moonlight-qt-${VERSION}-linux-x86_64"
+        
+        mkdir -p "$PACKAGE_NAME"
+        
+        # Find and copy binary
+        find build -name "moonlight" -type f -executable -exec cp {} "$PACKAGE_NAME/" \;
+        
+        # Strip binary
+        strip --strip-all "$PACKAGE_NAME/moonlight" || true
+        chmod +x "$PACKAGE_NAME/moonlight"
+        
+        # Create launcher
+        cat > "$PACKAGE_NAME/moonlight-steamos.sh" <<'EOF'
+        #!/bin/bash
+        DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        
+        # SteamOS optimizations
+        export SDL_VIDEODRIVER=wayland
+        export QT_QPA_PLATFORM=wayland
+        export __GL_THREADED_OPTIMIZATIONS=1
+        export AMD_VULKAN_ICD=RADV
+        export RADV_PERFTEST=gpl
+        
+        exec "$DIR/moonlight" "$@"
+        EOF
+        chmod +x "$PACKAGE_NAME/moonlight-steamos.sh"
+        
+        # Create quick installer
+        cat > "$PACKAGE_NAME/install.sh" <<'EOF'
+        #!/bin/bash
+        INSTALL_DIR="$HOME/.local/share/moonlight-optimized"
+        mkdir -p "$INSTALL_DIR"
+        cp -r ./* "$INSTALL_DIR/"
+        echo "Installed to: $INSTALL_DIR"
+        echo "Run with: $INSTALL_DIR/moonlight-steamos.sh"
+        EOF
+        chmod +x "$PACKAGE_NAME/install.sh"
+        
+        # Create archives
+        tar czf "${PACKAGE_NAME}.tar.gz" "$PACKAGE_NAME"
+        zip -r "${PACKAGE_NAME}.zip" "$PACKAGE_NAME"
+        
+        # Generate checksums
+        sha256sum "${PACKAGE_NAME}.tar.gz" > checksums.txt
+        sha256sum "${PACKAGE_NAME}.zip" >> checksums.txt
+        
+        # Move to artifacts
+        mkdir -p release-artifacts
+        mv "${PACKAGE_NAME}".* release-artifacts/
+        mv checksums.txt release-artifacts/
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: linux-binary
+        path: release-artifacts/*
+
+  create-release:
+    name: Create Release
+    needs: build-linux
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: linux-binary
+        path: artifacts
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: Moonlight-Qt Optimized ${{ github.ref_name }}
+        body: |
+          # Moonlight-Qt Optimized for SteamOS/Legion Go
+          
+          ## Features
+          - 🚀 Optimized for AMD Ryzen Z1/Z1 Extreme
+          - 🎮 SteamOS/Legion Go support
+          - ⚡ Low-latency optimizations
+          - 🖥️ Wayland/Gamescope support
+          
+          ## Installation
+          
+          1. Download `moonlight-qt-${{ github.ref_name }}-linux-x86_64.tar.gz`
+          2. Extract: `tar xzf moonlight-qt-*.tar.gz`
+          3. Install: `cd moonlight-qt-* && ./install.sh`
+          4. Run: `moonlight-steamos.sh`
+          
+          ## Checksums
+          See `checksums.txt` for SHA256 verification.
+        files: |
+          artifacts/*
+        draft: false
+        prerelease: false
