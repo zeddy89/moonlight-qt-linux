@@ -735,7 +735,6 @@ int main(int argc, char *argv[])
     if (StreamingPreferences::get()->steamOSOptimizations) {
         // Optimize for Gamescope compositor on SteamOS
         SDL_SetHint(SDL_HINT_LINUX_JOYSTICK_DEADZONES, "0"); // Let Steam Input handle deadzones
-        SDL_SetHint(SDL_HINT_VIDEO_WAYLAND_PREFER_LIBDECOR, "0"); // Better Gamescope integration  
         SDL_SetHint(SDL_HINT_VIDEO_WAYLAND_ALLOW_LIBDECOR, "0"); // Prevent decorator conflicts
         SDL_SetHint(SDL_HINT_FRAMEBUFFER_ACCELERATION, "1"); // Force GPU acceleration
         SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1"); // Ensure VSync with Gamescope
